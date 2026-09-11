@@ -60,5 +60,5 @@
     "recovered_configuration": true,
     "kill_switch_after_recovery": true
   },
-  "remote_ci": "not run; local repositories have not been published"
+  "remote_ci": "Not part of this local verification. Current runs: https://github.com/dasferwer/flag-harbor/actions"
 }
