@@ -1,0 +1,64 @@
+{
+  "verified_at_utc": "2026-09-11T14:53:24.580503+00:00",
+  "project": "flagharbor",
+  "host": {
+    "system": "Darwin",
+    "architecture": "arm64"
+  },
+  "pytest_passed": 18,
+  "ruff_check": "passed",
+  "ruff_format": "passed",
+  "compose_config": "passed",
+  "seed_twice_preserves_existing_records": true,
+  "runtime": {
+    "uid": 999,
+    "python": "3.12.14",
+    "architecture": "aarch64",
+    "modules": {
+      "pytest": false,
+      "ruff": false
+    }
+  },
+  "health": {
+    "status": "ok"
+  },
+  "services": [
+    {
+      "service": "api",
+      "state": "running",
+      "health": "healthy"
+    },
+    {
+      "service": "database",
+      "state": "running",
+      "health": "healthy"
+    }
+  ],
+  "openapi_matches_local_app": true,
+  "openapi_sha256": "93be21821b5d4a98a53383598b6f12f4a9c1ddcbc16b4d8ef3a2a5516aec4996",
+  "metrics_endpoint": "passed",
+  "smoke": {
+    "ok": true,
+    "cohorts_1_10_100_percent": [
+      115,
+      1031,
+      10000
+    ],
+    "nested_cohorts": true,
+    "sse_kill_ms": 29.31,
+    "sdk_evaluations": 10000,
+    "sdk_p50_us": 4.58,
+    "sdk_p95_us": 11.96,
+    "revoked_key_clears_cache": true
+  },
+  "recovery": {
+    "ok": true,
+    "fault": "SIGKILL flags API",
+    "short_outage_uses_cache": true,
+    "expired_cache_value": false,
+    "expiry_wait_seconds": 1.75,
+    "recovered_configuration": true,
+    "kill_switch_after_recovery": true
+  },
+  "remote_ci": "not run; local repositories have not been published"
+}
