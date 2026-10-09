@@ -67,3 +67,7 @@ asyncio.run(main())
 - [Снимок OpenAPI](docs/openapi.json)
 
 Python 3.12, FastAPI, PostgreSQL 17, asyncpg, SQLAlchemy, httpx, JWT, Alembic. Код — [MIT](LICENSE).
+
+## Общее восстановление SDK
+
+[Проверка 32 SDK при настоящем разрыве API](docs/sdk-reconnect.md): ограниченный retry/backoff с jitter, TTL fail-closed, новая revision и ротация ключа. Предел двух задач на экземпляр отделён от серверного лимита 100 SSE на process; общий polling RPS не ограничивается этим числом.

@@ -2,6 +2,8 @@
 
 import asyncio
 import json
+import math
+import random
 import time
 from contextlib import suppress
 
@@ -15,7 +17,10 @@ class FlagClient:
     def __init__(
         self, base_url, sdk_key, *, max_stale=30, refresh_interval=2, transport=None, watch=True
     ):
-        if max_stale <= 0 or refresh_interval <= 0:
+        if any(
+            type(value) not in (int, float) or not math.isfinite(value) or value <= 0
+            for value in (max_stale, refresh_interval)
+        ):
             raise ValueError("Cache timeouts must be positive")
         self.http = httpx.AsyncClient(
             base_url=base_url,
@@ -30,6 +35,8 @@ class FlagClient:
         self.watch = watch
         self._state = (None, 0.0)
         self._lock = asyncio.Lock()
+        self._start_lock = asyncio.Lock()
+        self._random = random.Random()
         self._tasks = []
         self.last_error = None
 
@@ -69,12 +76,21 @@ class FlagClient:
         result.stale = self.last_error is not None
         return result
 
+    def _delay(self, failures):
+        if not failures:
+            return self.refresh_interval * self._random.uniform(0.8, 1.2)
+        ceiling = min(self.refresh_interval * (2 ** min(failures, 5)), 30)
+        return self._random.uniform(ceiling / 2, ceiling)
+
     async def _poll(self):
+        failures = 0
         while True:
-            await asyncio.sleep(self.refresh_interval)
-            await self.refresh()
+            await asyncio.sleep(self._delay(failures))
+            failures = 0 if await self.refresh() else failures + 1
 
     async def _watch(self):
+        failures = 0
+        await asyncio.sleep(self._random.uniform(0, min(self.refresh_interval, 1)))
         while True:
             try:
                 timeout = httpx.Timeout(2, read=15)
@@ -93,22 +109,25 @@ class FlagClient:
                                     self._state = (None, 0.0)
                                     self.last_error = "revoked"
                                 elif kind == "revision":
+                                    failures = 0
                                     revision = json.loads(line[5:])["revision"]
                                     snapshot, _ = self._state
                                     if snapshot is None or snapshot.revision != revision:
                                         await self.refresh()
             except (httpx.HTTPError, ValueError, KeyError):
                 pass
-            await asyncio.sleep(min(self.refresh_interval, 5))
+            failures += 1
+            await asyncio.sleep(self._delay(failures))
 
     async def start(self):
-        if self._tasks:
+        async with self._start_lock:
+            if self._tasks:
+                return self
+            await self.refresh()
+            self._tasks = [asyncio.create_task(self._poll())]
+            if self.watch:
+                self._tasks.append(asyncio.create_task(self._watch()))
             return self
-        await self.refresh()
-        self._tasks = [asyncio.create_task(self._poll())]
-        if self.watch:
-            self._tasks.append(asyncio.create_task(self._watch()))
-        return self
 
     async def close(self):
         for task in self._tasks:
