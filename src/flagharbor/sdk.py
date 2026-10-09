@@ -130,13 +130,14 @@ class FlagClient:
             return self
 
     async def close(self):
-        for task in self._tasks:
-            task.cancel()
-        for task in self._tasks:
-            with suppress(asyncio.CancelledError):
-                await task
-        self._tasks = []
-        await self.http.aclose()
+        async with self._start_lock:
+            for task in self._tasks:
+                task.cancel()
+            for task in self._tasks:
+                with suppress(asyncio.CancelledError):
+                    await task
+            self._tasks = []
+            await self.http.aclose()
 
     async def __aenter__(self):
         return await self.start()

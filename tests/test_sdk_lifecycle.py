@@ -29,6 +29,30 @@ async def test_concurrent_start_does_not_leak_background_tasks():
         await asyncio.gather(*spawned, return_exceptions=True)
 
 
+async def test_close_waits_for_inflight_start_and_cleans_all_tasks():
+    entered, release = asyncio.Event(), asyncio.Event()
+
+    async def handler(request):
+        entered.set()
+        await release.wait()
+        return httpx.Response(503)
+
+    sdk = FlagClient("http://test", "key", transport=httpx.MockTransport(handler))
+    started = asyncio.create_task(sdk.start())
+    await entered.wait()
+    closed = asyncio.create_task(sdk.close())
+    try:
+        await asyncio.sleep(0)
+        release.set()
+        await asyncio.gather(started, closed)
+        assert sdk._tasks == []
+        assert sdk.http.is_closed
+    finally:
+        release.set()
+        await asyncio.gather(started, closed, return_exceptions=True)
+        await sdk.close()
+
+
 async def test_retry_jitter_is_bounded_and_spreads_clients():
     delays = []
     for seed in range(32):
