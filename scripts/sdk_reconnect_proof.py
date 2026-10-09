@@ -55,6 +55,14 @@ class Target:
                     mount["Type"] == "volume" and not mount["Name"].startswith(project + "_")
                 ):
                     raise ValueError("Proof не должен использовать внешнее хранилище")
+            if labels.get("com.docker.compose.service") == "api":
+                port = urlsplit(base).port or 80
+                bindings = container["NetworkSettings"]["Ports"].get("8000/tcp") or []
+                if not any(
+                    binding["HostIp"] in {"127.0.0.1", "::1"} and int(binding["HostPort"]) == port
+                    for binding in bindings
+                ):
+                    raise ValueError("HTTP-адрес не соответствует порту собственной api")
 
     def compose(self, *args):
         subprocess.run(self.command + list(args), check=True, capture_output=True, timeout=120)

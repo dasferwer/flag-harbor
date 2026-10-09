@@ -1,4 +1,5 @@
 import asyncio
+import json
 import random
 import time
 
@@ -6,7 +7,7 @@ import httpx
 import pytest
 
 from flagharbor.sdk import FlagClient
-from scripts.sdk_reconnect_proof import validate_target, window
+from scripts.sdk_reconnect_proof import Target, validate_target, window
 
 
 async def test_concurrent_start_does_not_leak_background_tasks():
@@ -125,3 +126,34 @@ def test_attempt_bucket_boundaries_and_excluded_future():
     assert result["attempts"] == 3
     assert result["max_attempts_per_50ms"] == 2
     assert result["sse_attempts"] == 1
+
+
+@pytest.mark.parametrize("port,allowed", [(54919, True), (8190, False)])
+def test_proof_url_matches_owned_api_binding(monkeypatch, tmp_path, port, allowed):
+    records = []
+    for service in ("api", "database"):
+        records.append(
+            {
+                "Config": {
+                    "Labels": {
+                        "com.docker.compose.project": "codex-p2-19-1009",
+                        "com.docker.compose.service": service,
+                    }
+                },
+                "Mounts": [],
+                "NetworkSettings": {
+                    "Ports": {"8000/tcp": [{"HostIp": "127.0.0.1", "HostPort": "54919"}]}
+                },
+            }
+        )
+    monkeypatch.setattr(
+        "scripts.sdk_reconnect_proof.subprocess.check_output",
+        lambda command: (
+            json.dumps(records).encode() if command[1] == "inspect" else b"api-id db-id"
+        ),
+    )
+    if allowed:
+        Target("codex-p2-19-1009", f"http://127.0.0.1:{port}", tmp_path / "compose.json")
+    else:
+        with pytest.raises(ValueError):
+            Target("codex-p2-19-1009", f"http://127.0.0.1:{port}", tmp_path / "compose.json")
